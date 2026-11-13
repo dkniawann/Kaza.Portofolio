@@ -647,11 +647,11 @@
                 <div class="eq-bar"></div>
             </div>
 
-          <!-- Track Info & Controls -->
+   <!-- Track Info & Controls -->
             <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-center">
                     <p class="text-xs font-title font-bold text-p3blue-light truncate" id="bgm-title">Color Your Night</p>
-                    <span class="text-[10px] text-gray-400 font-tech uppercase" id="bgm-time">BGM ON</span>
+                    <span class="text-[10px] text-gray-400 font-tech uppercase" id="bgm-time">BGM AUTO</span>
                 </div>
                 <!-- Track Selector & Upload Trigger -->
                 <div class="flex items-center space-x-2 mt-1">
@@ -941,8 +941,8 @@
             document.getElementById('add-bgm-modal').classList.add('hidden');
         });
 
-  /* ===================================================
-           4. AUDIO & MUSIC PLAYER (AUTO-PLAY P3R OST)
+/* ===================================================
+           4. AUDIO & MUSIC PLAYER (AUTO-PLAY & TANPA AMBIENT)
            =================================================== */
         const audioPlayer = document.getElementById('audio-player');
         const bgmPlayBtn = document.getElementById('bgm-play-btn');
@@ -950,7 +950,7 @@
         const bgmSelect = document.getElementById('bgm-select');
         const bgmTitle = document.getElementById('bgm-title');
 
-        const TRACKS = {
+        const TRACK_URLS = {
             'color-your-night': {
                 title: 'Color Your Night',
                 url: 'https://archive.org/download/persona-3-reload-ost-flac/Persona%203%20Reload%20%282024%29/Disc%201/16.%20Color%20Your%20Night.mp3'
@@ -962,43 +962,51 @@
         };
 
         let isPlaying = false;
+        let unlockHandler = null;
 
-        // Set lagu default saat pertama kali dibuka
-        audioPlayer.src = TRACKS['color-your-night'].url;
+        function removeUnlockListeners() {
+            if (!unlockHandler) return;
+            document.removeEventListener('click', unlockHandler);
+            document.removeEventListener('touchstart', unlockHandler);
+            document.removeEventListener('keydown', unlockHandler);
+            unlockHandler = null;
+        }
 
         function startAudio() {
             if (!audioPlayer.src) return;
+            removeUnlockListeners();
             audioPlayer.play().then(() => {
                 isPlaying = true;
                 playIcon.className = "fa-solid fa-pause p3-unslant";
-                // Hapus listener interaksi pertama setelah lagu berhasil jalan
-                document.removeEventListener('click', unlockAudioOnFirstTouch);
-                document.removeEventListener('touchstart', unlockAudioOnFirstTouch);
             }).catch(() => {
-                // Jika browser memblokir autoplay, tunggu sentuhan/klik pertama user
-                isPlaying = false;
-                playIcon.className = "fa-solid fa-play p3-unslant";
+                // Otomatis mulai memutar pada sentuhan/klik pertama jika browser memblokir autoplay
+                unlockHandler = () => {
+                    audioPlayer.play().then(() => {
+                        isPlaying = true;
+                        playIcon.className = "fa-solid fa-pause p3-unslant";
+                    }).catch(() => {});
+                    removeUnlockListeners();
+                };
+                document.addEventListener('click', unlockHandler);
+                document.addEventListener('touchstart', unlockHandler);
+                document.addEventListener('keydown', unlockHandler);
             });
         }
 
-        function unlockAudioOnFirstTouch() {
-            if (!isPlaying && audioPlayer.paused) {
-                startAudio();
-            }
-        }
-
-        // Jalankan lagu otomatis pada sentuhan/klik pertama jika browser memblokir autoplay awal
-        document.addEventListener('click', unlockAudioOnFirstTouch);
-        document.addEventListener('touchstart', unlockAudioOnFirstTouch);
-
         function togglePlay() {
+            removeUnlockListeners();
             if (!audioPlayer.src) {
                 showToast("Silakan pilih atau masukkan URL file lagu MP3 terlebih dahulu.");
                 return;
             }
 
             if (audioPlayer.paused) {
-                startAudio();
+                audioPlayer.play().then(() => {
+                    isPlaying = true;
+                    playIcon.className = "fa-solid fa-pause p3-unslant";
+                }).catch(() => {
+                    showToast("Gagal memutar audio. Pastikan koneksi internet aktif.");
+                });
             } else {
                 audioPlayer.pause();
                 isPlaying = false;
@@ -1011,14 +1019,16 @@
             togglePlay();
         });
 
-        /* BGM SELECTOR LOGIC */
         bgmSelect.addEventListener('change', (e) => {
-            const val = e.target.value;
-            if (val === 'custom') {
+            audioPlayer.pause();
+            isPlaying = false;
+            playIcon.className = "fa-solid fa-play p3-unslant";
+
+            if (e.target.value === 'custom') {
                 document.getElementById('add-bgm-modal').classList.remove('hidden');
-            } else if (TRACKS[val]) {
-                bgmTitle.innerText = TRACKS[val].title;
-                audioPlayer.src = TRACKS[val].url;
+            } else if (TRACK_URLS[e.target.value]) {
+                bgmTitle.innerText = TRACK_URLS[e.target.value].title;
+                audioPlayer.src = TRACK_URLS[e.target.value].url;
                 startAudio();
             }
         });
@@ -1031,12 +1041,6 @@
 
             if (fileInput.files && fileInput.files[0]) {
                 const file = fileInput.files[0];
-                audioPlayer.src = URL
-
-            stopSynthBGM();
-
-            if (fileInput.files && fileInput.files[0]) {
-                const file = fileInput.files[0];
                 audioPlayer.src = URL.createObjectURL(file);
                 bgmTitle.innerText = file.name;
             } else if (url) {
@@ -1045,7 +1049,7 @@
             }
 
             document.getElementById('add-bgm-modal').classList.add('hidden');
-            togglePlay();
+            startAudio();
             showToast("Lagu custom berhasil dimuat!");
         });
 
